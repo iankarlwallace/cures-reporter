@@ -1,0 +1,29 @@
+{
+  "name": "cures-reporter",
+  "version": "1.0.0",
+  "description": "CURES reporter that can extract prescription fill data using a text file to direct whom to look up.",
+  "main": "index.js",
+  "scripts": {
+    "test": "test.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/iankarlwallace/cures-reporter.git"
+  },
+  "keywords": [
+    "CURES",
+    "prescription",
+    "puppeteer"
+  ],
+  "author": "Ian Wallace",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/iankarlwallace/cures-reporter/issues"
+  },
+  "homepage": "https://github.com/iankarlwallace/cures-reporter#readme",
+  "dependencies": {
+    "puppeteer": "^1.12.1",
+    "readline-sync": "^1.4.9",
+    "xlsx": "^0.14.1"
+  }
+}
