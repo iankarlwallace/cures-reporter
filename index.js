@@ -1,6 +1,7 @@
 // Basic script to load the page and then search for a patient
 'use strict';
 
+const mLog = require('./logging-func');
 const puppeteer = require('puppeteer');
 const credentials = require('./credentials');
 const patients = require('./patients');
@@ -10,9 +11,9 @@ const xlsx_file = './xlsx/c_s5to11_18_c.xlsx'
 
 async function run() {
   var pts = await dbtools.load_new_patients(xlsx_file);
-  console.log('Query needed on [',pts,']');
+  mLog.info('Query needed on [',pts,']');
 
-  const browser = await puppeteer.launch({slowMo: 250, headless: false, args: ['--window-size=1920,1080']});
+  const browser = await puppeteer.launch({slowMo: 100, headless: false, args: ['--window-size=1920,1080']});
   const page = await browser.newPage();
   await page.setViewport({ width: 1920, height: 1080 });
 
@@ -25,7 +26,7 @@ async function run() {
 	  let fname = pts[pt][0].substring(0,3);
 	  let lname = pts[pt][1].substring(0,3);
 	  let dob = pts[pt][3];
-	  console.log('Query for [',fname,'][',lname,'][',dob,']');
+	  mLog.info('Query for [',fname,'][',lname,'][',dob,']');
 	  await cures_website.par_search(page, fname, lname, dob);
 	  await cures_website.par(page);
   }
@@ -36,4 +37,4 @@ async function run() {
   await page.close();
   await browser.close();
 }
-run().catch((e) => console.log(e));
+run().catch((e) => mLog.error(e));

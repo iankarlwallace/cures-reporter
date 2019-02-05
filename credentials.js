@@ -1,28 +1,30 @@
 // Credentials functions to get them from the command line
 'use strict';
+
+const mLog = require('./logging-func');
 const readline = require('readline-sync'); 
 const username = undefined;
 const password = undefined;
 
 var credentials = {
   _if_undef_readline: async function(myVar,myQuestion) {
-    console.log('_if_undef_readline start');
+    mLog.info('_if_undef_readline start');
     if (myVar === undefined) {
       myVar = await readline.question(myQuestion);
     } 
-    console.log('_if_undef_readline finish [',myVar,']');
+    mLog.info('_if_undef_readline finish [',myVar,']');
     return myVar;
   },
   get_username: async function() {
-    console.log('get_username start');
+    mLog.info('get_username start');
     this.username = await this._if_undef_readline( this.username, "Username: ");
-    console.log('get_username finish');
+    mLog.info('get_username finish');
     return this.username.toString();
   },
   get_password: async function() {
-    console.log('get_password start');
+    mLog.info('get_password start');
     this.password = await this._if_undef_readline( this.password, "Password: ");
-    console.log('get_password finish');
+    mLog.info('get_password finish');
     return this.password.toString();
   }
 };

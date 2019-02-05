@@ -1,10 +1,11 @@
 // Functions to load new patients, list them out or get a list of patient names and DOB's to query
 'use strict';
+const mLog = require('./logging-func');
 const XLSX = require('xlsx');
 
 var dbtools = {
     load_new_patients: async function(xlsxFile) {
-	console.log('load_new_patients started [',xlsxFile,']');
+	mLog.debug('load_new_patients started [',xlsxFile,']');
 	var myWb = XLSX.readFile(xlsxFile);
 	var myWs = myWb.Sheets[myWb.SheetNames[0]];
 
@@ -28,15 +29,15 @@ var dbtools = {
 				var lname = names[0].trimStart();
 				var fname = names[1].trimStart();
 
-				console.log('FOUND [',fname,'] [',lname,'] [',mrnCell.w,'] [',dobCell.w,']');
+				mLog.info('FOUND [',fname,'] [',lname,'] [',mrnCell.w,'] [',dobCell.w,']');
 				rows.push([fname, lname, mrnCell.w, dobCell.w]);
 			} else {
-				console.log('No DOB set for row [',rowNum,']');
+				mLog.info('No DOB set for row [',rowNum,']');
 			}
 		}
 	}
 	return rows;
-	console.log('load_new_patients finished');
+	mLog.debug('load_new_patients finished');
     }
 };
 
