@@ -13,9 +13,9 @@ async function run() {
   var pts = await dbtools.load_new_patients(xlsx_file);
   mLog.info('Query needed on [',pts,']');
 
-  const browser = await puppeteer.launch({slowMo: 100, headless: false, args: ['--window-size=1920,1080']});
+  const browser = await puppeteer.launch({slowMo: 100, headless: false, args: ['--window-size=960,1080']});
   const page = await browser.newPage();
-  await page.setViewport({ width: 1920, height: 1080 });
+  await page.setViewport({ width: 960, height: 1080 });
 
   let uname = await credentials.get_username();
   let pword = await credentials.get_password();
@@ -23,8 +23,8 @@ async function run() {
   await cures_website.par(page);
 
   for(let pt in pts) {
-	  let fname = pts[pt][0].substring(0,3);
-	  let lname = pts[pt][1].substring(0,3);
+	  let fname = pts[pt][0];
+	  let lname = pts[pt][1];
 	  let dob = pts[pt][3];
 	  mLog.info('Query for [',fname,'][',lname,'][',dob,']');
 	  await cures_website.par_search(page, fname, lname, dob);
