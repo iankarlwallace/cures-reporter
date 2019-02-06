@@ -58,7 +58,7 @@ var cures_website = {
 	mLog.debug('Patient Activity Report started');
 	try {
 		await Promise.all([
-		    page.waitFor(SEARCH_BTN_XPATH),
+		    page.waitFor(SEARCH_BTN_XPATH,{waitUntil: 'networkidle0'}),
 		    this._click_xpath(page, MENU_SEARCH_XPATH)
 		]);
 	} catch(e) {mLog.error(e)};
@@ -78,6 +78,10 @@ var cures_website = {
 	const download_dir = './downloads';	
 	let matchNum = undefined;
 
+	let ptRecs = 0;
+	let ptNoRecs = 0;
+	let totPts = 0;
+
 	mLog.info('Start search with [',fname,' ',lname,' ',dob,']');
 	try {
 		await this._fill_xpath(page, FNAME_XPATH, fname.substring(0,4));
@@ -96,6 +100,7 @@ var cures_website = {
 
 	if ( matchNum === 0 ) {
 		mLog.info('NO records matched.');
+		ptNoRecs++;
 		await this._set_download_dir(page,download_dir);
 		await this._click_xpath(page, SEARCH_SUM_XPATH);
 		await page.waitFor(1000);
@@ -121,6 +126,7 @@ var cures_website = {
 		} catch(e) {mLog.error(e)};
 	} else {
 		mLog.info('Matches [',matchNum,']');
+		ptRecs++;
 		try {
 			await Promise.all([
 				page.waitFor(GEN_REPORT_XPATH),
@@ -160,7 +166,12 @@ var cures_website = {
 			}
 		} catch(e) {mLog.error(e)};
 	}
-	mLog.info('Search finished');
+	totPts = ptRecs + ptNoRecs;
+	mLog.info('Search finished with recs [',
+		ptRecs,'] no recs [',
+		ptNoRecs,'] total pt searches [',
+		totPts ,']');
+	return( [ ptRecs, ptNoRecs ] );
     },
     logout: async function (page) {
 	const LOGOUT_XPATH = '//*[@id="headerForm:j_idt16"]/ul/li[8]/a';
