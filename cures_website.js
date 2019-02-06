@@ -4,6 +4,9 @@ const mLog = require('./logging-func');
 const fs = require('fs');
 
 var cures_website = {
+    _fs_safe_name: async function(text) {
+	    return text.replace(/[ \'\/]/g,'-');
+    },
     _set_download_dir: async function(page, dirpath) {
 		return page._client.send('Page.setDownloadBehavior',{
 			behavior: 'allow',
@@ -71,6 +74,7 @@ var cures_website = {
 	const RESULTS_CHKBOX_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:j_idt185"]/div/div[2]';
 	const GEN_REPORT_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:genReportBtn"]/span[2]';
 	const DOWNLOAD_PAR_XPATH = '//*[@id="patientSrchForm:parTabs:downloadPar"]/span';
+	const SEARCH_SUM_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:j_idt206"]/span';
 	const download_dir = './downloads';	
 	let matchNum = undefined;
 
@@ -92,6 +96,29 @@ var cures_website = {
 
 	if ( matchNum === 0 ) {
 		mLog.info('NO records matched.');
+		await this._set_download_dir(page,download_dir);
+		await this._click_xpath(page, SEARCH_SUM_XPATH);
+		await page.waitFor(1000);
+
+		// Filename format CuresSearchSummaryReportYYYYMMDD_HHMMSS-NNN.pdf
+		try {
+			console.info('Look for [',download_dir + '/CuresSearchSummaryReport*.pdf',']');
+			var entries = fs.readdirSync(download_dir); 
+			var files = entries.filter(
+				elm => elm.match(
+					new RegExp(`CuresSearchSummaryReport.*.(pdf)`,'g')));
+			mLog.info('File [',files,']');
+
+			let safe_fname = await this._fs_safe_name(fname);
+			let safe_lname = await this._fs_safe_name(lname);
+			let safe_dob = await this._fs_safe_name(dob);
+
+			fs.renameSync(download_dir + "/" + files[0],
+				download_dir + "/"
+				+ safe_fname + "-"
+				+ safe_lname + "-"
+				+ safe_dob + ".pdf");
+		} catch(e) {mLog.error(e)};
 	} else {
 		mLog.info('Matches [',matchNum,']');
 		try {
@@ -118,12 +145,16 @@ var cures_website = {
 		try {
 			if (fs.existsSync(download_dir + "/par.xlsx")) {
 				mLog.info('Found download file par.xlsx');
-				let pathdob = dob.replace("/","-");
+
+				let safe_fname = await this._fs_safe_name(fname);
+				let safe_lname = await this._fs_safe_name(lname);
+				let safe_dob = await this._fs_safe_name(dob);
+
 				fs.renameSync(download_dir + "/par.xlsx",
 					download_dir + "/" 
-					+ fname + "-" 
-					+ lname + "-" 
-					+ pathdob + ".xlsx");
+					+ safe_fname + "-" 
+					+ safe_lname + "-" 
+					+ safe_dob + ".xlsx");
 			} else {
 				mLog.error('MISSING par.xlsx however download flagged as successful.');
 			}
