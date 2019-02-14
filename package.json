@@ -27,6 +27,7 @@
     "puppeteer": "^1.12.2",
     "readline-sync": "^1.4.9",
     "winston": "^3.2.1",
-    "xlsx": "^0.14.1"
+    "xlsx": "^0.14.1",
+    "yargs": "^13.1.0"
   }
 }
