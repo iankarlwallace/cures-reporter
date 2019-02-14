@@ -2,12 +2,14 @@
 'use strict';
 
 const appRoot = require('app-root-path');
-const mLog = require(appRoot + '/lib/logging-func');
 const puppeteer = require('puppeteer');
+
+const mLog = require(appRoot + '/lib/logging-func');
 const credentials = require(appRoot + '/lib/credentials');
 const patients = require(appRoot + '/lib/patients');
 const cures_website = require(appRoot + '/lib/cures_website');
 const dbtools = require(appRoot + '/lib/dbtools');
+
 const xlsx_file = appRoot + '/xlsx/c_s5to11_18_c.xlsx'
 
 async function run() {
