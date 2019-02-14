@@ -2,12 +2,13 @@
 'use strict';
 const mLog = require('./logging-func');
 const fs = require('fs');
+const download_dir = './downloads';	
 
 var cures_website = {
-    _fs_safe_name: async function(text) {
+    _fs_safe_name: function(text) {
 	    return text.replace(/[ \'\/]/g,'-');
     },
-    _set_download_dir: async function(page, dirpath) {
+    _set_download_dir: function(page, dirpath) {
 		return page._client.send('Page.setDownloadBehavior',{
 			behavior: 'allow',
 			downloadPath: dirpath
@@ -19,7 +20,8 @@ var cures_website = {
 	if (linkHandlers.length > 0) {
 	        await linkHandlers[0].click();
 	} else {
-		throw new Error("Link not found");
+		mLog.error('Link not found [',myXpath,']');
+		throw new Error("Link not found.");
 	}
 	mLog.debug(' _click_xpath finished');
     },
@@ -29,18 +31,21 @@ var cures_website = {
 	await page.keyboard.type(myVal);
 	mLog.debug('_fill_xpath finished');
     },
+    goto_homepage: async function (page) {
+	try {
+		await Promise.all([
+		    page.waitForNavigation(),
+		    page.goto('https://cures.doj.ca.gov',{waitUntil: 'networkidle0'})
+		]);
+	} catch(e) {mLog.error(e);}
+    },
     login: async function (page, username, password) { 
 	const USERNAME_XPATH = '//*[@id="username"]';
 	const PASSWORD_XPATH = '//*[@id="password"]';
 	const LOGIN_XPATH = '//*[@id="loginForm"]/div[1]/span/input';
 
 	mLog.info('Login started username [',username,']');
-	try {
-		await Promise.all([
-		    page.waitForNavigation(),
-		    page.goto('https://cures.doj.ca.gov', {waitUntil: 'networkidle0'})
-		]);
-	} catch(e) {mLog.error(e);}
+	await this.goto_homepage(page);
 
 	try {
 		await this._fill_xpath(page, USERNAME_XPATH, username);
@@ -52,17 +57,65 @@ var cures_website = {
 	} catch(e) {mLog.error(e);}
 	mLog.info('Login finished');
     },
+    cleanup_downloads_dir: function () {
+	// After a failed attempt the downloads_dir might have old CuresSearchSummaryReport in it
+	// Or may have a crdownload
+	try {
+		mLog.info('Removing partial CuresSearchSummaryReport, .crdownloadi, or par.xlsx files');
+		var entries = fs.readdirSync(download_dir);
+		var curessumfiles = entries.filter( elm => elm.match(
+			new RegExp(`CuresSearchSummaryReport.*\.pdf`,'g')));
+		var crdownloads = entries.filter( elm => elm.match(
+			new RegExp(`.*\.crdownload`,'g')));
+		var par_xlsx = entries.filter( elm => elm.match(
+			new RegExp(`par.xlsx`,'g')));
+		curessumfiles.concat(crdownloads.concat(par_xlsx)).forEach((file) => {
+			let fullpath = download_dir + '/' + file;
+			mLog.info('Working on removing [',fullpath,']');
+			fs.unlinkSync(fullpath);
+		});
+	} catch(e) {mLog.error(e)};
+
+    },
+    file_exists: function (filename) {
+	    try {
+		    fs.accessSync(filename);
+		    return true;
+	    } catch(e) {
+		    return false;
+	    }
+    },
     par: async function (page) {
 	const MENU_SEARCH_XPATH = '//*[@id="headerForm:j_idt16"]/ul/li[3]/a';
 	const SEARCH_BTN_XPATH ='//*[@id="patientSrchForm:parTabs:searchBtn"]/span';
 	mLog.debug('Patient Activity Report started');
 	try {
-		await Promise.all([
-		    page.waitFor(SEARCH_BTN_XPATH,{waitUntil: 'networkidle0'}),
-		    this._click_xpath(page, MENU_SEARCH_XPATH)
-		]);
-	} catch(e) {mLog.error(e)};
+		const navPromise = page.waitForNavigation();
+		await this._click_xpath(page, MENU_SEARCH_XPATH);
+		await navPromise;
+	} catch(e) {
+		mLog.error('PAR caught an error.');
+		mLog.error(e)
+	};
 	mLog.debug('Patient Activity Report finished');
+    },
+    fullpath: function( fname, lname, dob) {
+	    return ( download_dir + '/' 
+		    + this._fs_safe_name(fname) + '-'
+		    + this._fs_safe_name(lname) + '-'
+		    + this._fs_safe_name(dob) );
+    },
+    confirm_pt_file_needed: function( fname, lname, dob) {
+	let fullpath_noext = this.fullpath( fname, lname, dob);
+	// If either file exists then we should just skip the query
+	if (this.file_exists(fullpath_noext + '.pdf') || this.file_exists(fullpath_noext + '.xlsx')) {
+		// file found skip
+		mLog.info('Skip for retreive for [',fullpath_noext,']');
+		return false;
+	} else {
+		mLog.info('File not found QUERY needed for [',fullpath_noext,']');
+		return true;
+	}
     },
     par_search: async function (page, fname, lname, dob) {
 	const FNAME_XPATH = '//*[@id="patientSrchForm:parTabs:firstName"]';
@@ -72,23 +125,23 @@ var cures_website = {
 	const RESULT_XPATH = '//*[@id="patientSrchForm:parTabs:resultContainer"]';
 	const MATCHES_XPATH = '//*[@id="patientSrchForm:parTabs:searchResult"]/text()';
 	const RESULTS_CHKBOX_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:j_idt185"]/div/div[2]';
-	const GEN_REPORT_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:genReportBtn"]/span[2]';
-	const DOWNLOAD_PAR_XPATH = '//*[@id="patientSrchForm:parTabs:downloadPar"]/span';
-	const SEARCH_SUM_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:j_idt206"]/span';
-	const download_dir = './downloads';	
+	const GEN_REPORT_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:genReportBtn"]';
+	const DOWNLOAD_PAR_XPATH = '//*[@id="patientSrchForm:parTabs:downloadPar"]';
+	const SEARCH_SUM_XPATH = '//*[@id="patientSrchForm:parTabs:patientTbl:j_idt206"]';
 	let matchNum = undefined;
 
 	let ptRecs = 0;
 	let ptNoRecs = 0;
 	let totPts = 0;
 
+	let fullpath_noext = this.fullpath( fname, lname, dob);
 	mLog.info('Start search with [',fname,' ',lname,' ',dob,']');
 	try {
 		await this._fill_xpath(page, FNAME_XPATH, fname.substring(0,4));
 	 	await this._fill_xpath(page, LNAME_XPATH, lname.substring(0,4));
 	 	await this._fill_xpath(page, DOB_XPATH, dob);
 		await this._click_xpath(page, SEARCH_XPATH);
-		await page.waitFor(MATCHES_XPATH,{waitUntil: 'networkidle0'});
+		await page.waitFor(MATCHES_XPATH);
 	} catch(e) {mLog.error(e)};
 
 	// A Search should return a search result of some kind (usually with results number)
@@ -110,35 +163,23 @@ var cures_website = {
 			console.info('Look for [',download_dir + '/CuresSearchSummaryReport*.pdf',']');
 			var entries = fs.readdirSync(download_dir); 
 			var files = entries.filter(
-				elm => elm.match(
-					new RegExp(`CuresSearchSummaryReport.*.(pdf)`,'g')));
+				elm => elm.match( new RegExp(`CuresSearchSummaryReport.*.(pdf)`,'g')));
 			mLog.info('File [',files,']');
-
-			let safe_fname = await this._fs_safe_name(fname);
-			let safe_lname = await this._fs_safe_name(lname);
-			let safe_dob = await this._fs_safe_name(dob);
-
-			fs.renameSync(download_dir + "/" + files[0],
-				download_dir + "/"
-				+ safe_fname + "-"
-				+ safe_lname + "-"
-				+ safe_dob + ".pdf");
+			fs.renameSync(download_dir + "/" + files[0], fullpath_noext + '.pdf');
 		} catch(e) {mLog.error(e)};
 	} else {
 		mLog.info('Matches [',matchNum,']');
 		ptRecs++;
 		try {
-			await Promise.all([
-				page.waitFor(GEN_REPORT_XPATH),
-				this._click_xpath(page,RESULTS_CHKBOX_XPATH)
-			]);
+			const navPromise = page.waitFor(GEN_REPORT_XPATH);
+			await this._click_xpath(page,RESULTS_CHKBOX_XPATH);
+			await navPromise;
 		} catch(e) {mLog.error(e)};
 
 		try {
-			await Promise.all([
-				page.waitFor(DOWNLOAD_PAR_XPATH),
-				this._click_xpath(page,GEN_REPORT_XPATH)
-			]);
+			const navPromise = page.waitFor(DOWNLOAD_PAR_XPATH);
+			await this._click_xpath(page,GEN_REPORT_XPATH);
+			await navPromise;
 		} catch(e) {mLog.error(e)};
 
 		await this._set_download_dir(page,download_dir);
@@ -151,25 +192,16 @@ var cures_website = {
 		try {
 			if (fs.existsSync(download_dir + "/par.xlsx")) {
 				mLog.info('Found download file par.xlsx');
-
-				let safe_fname = await this._fs_safe_name(fname);
-				let safe_lname = await this._fs_safe_name(lname);
-				let safe_dob = await this._fs_safe_name(dob);
-
-				fs.renameSync(download_dir + "/par.xlsx",
-					download_dir + "/" 
-					+ safe_fname + "-" 
-					+ safe_lname + "-" 
-					+ safe_dob + ".xlsx");
+				fs.renameSync(download_dir + "/par.xlsx", fullpath_noext + ".xlsx");
 			} else {
 				mLog.error('MISSING par.xlsx however download flagged as successful.');
 			}
 		} catch(e) {mLog.error(e)};
 	}
 	totPts = ptRecs + ptNoRecs;
-	mLog.info('Search finished with recs [',
-		ptRecs,'] no recs [',
-		ptNoRecs,'] total pt searches [',
+	mLog.info('Search finished with recs [', 
+		ptRecs,'] no recs [', 
+		ptNoRecs,'] total pt searches [', 
 		totPts ,']');
 	return( [ ptRecs, ptNoRecs ] );
     },
@@ -177,7 +209,9 @@ var cures_website = {
 	const LOGOUT_XPATH = '//*[@id="headerForm:j_idt16"]/ul/li[8]/a';
 	mLog.info('Logout started');
 	try {
-		await this._click_xpath(page, LOGOUT_XPATH);	
+		var navPromise = page.waitForNavigation();
+		await this._click_xpath(page, LOGOUT_XPATH);
+		await navPromise;
 	} catch(e) {mLog.error(e);}
 	mLog.info('Logout finished');
     }
