@@ -11,7 +11,7 @@ const cures_website = require(appRoot + '/lib/cures_website');
 const dbtools = require(appRoot + '/lib/dbtools');
 
 const xlsx_file = appRoot + '/xlsx/c_s5to11_18_c.xlsx';
-const downloads_dir = appRoot + './downloads';
+const downloads_dir = appRoot + '/downloads';
 
 var argv = require('yargs')
   .usage('Usage: $0 <command[> [options]')
@@ -27,7 +27,9 @@ var argv = require('yargs')
     })
   .demandCommand(1)
   .example('$0 query -f patient_data_.xlsx', 'Query patient data from xlsx file')
-  .example('$0 process', 'Try to process all downloaded files from')
+  .example('$0 process', 'Try to process all downloaded files')
+  .alias('v', 'version')
+  .alias('h', 'help')
   .alias('f', 'file')
   .alias('d', 'downloadsDir')
   .default('f', xlsx_file)
@@ -42,6 +44,7 @@ async function process() {
 
 async function query(myFile, myDir) {
   mLog.info('Starting to work on query [%s] with dir [%s]', myFile, myDir);
+
   var pts = await dbtools.load_new_patients(myFile);
 
   // Currently the downloads_dir is hardcoded in the cures_website module
@@ -56,9 +59,10 @@ async function query(myFile, myDir) {
   let ptMiss = 0;
 
   for (let pt in pts) {
-    let fname = pts[pt][0];
-    let lname = pts[pt][1];
-    let dob = pts[pt][3];
+    let rowNum = pts[pt]["row"];
+    let fname = pts[pt]["firstname"];
+    let lname = pts[pt]["lastname"];
+    let dob = pts[pt]["dob"];
 
     if (cures_website.confirm_pt_file_needed(fname, lname, dob)) {
 
@@ -84,7 +88,7 @@ async function query(myFile, myDir) {
       await page.close();
       await browser.close();
     } else {
-      mLog.info('Pt query not needed for [%s] [%s] [%s] [%s]', pt, fname, lname, dob);
+      mLog.info('Pt query not needed for [%s] [%s] [%s] [%s] [%s]', pt, rowNum, fname, lname, dob);
     }
   }
 
